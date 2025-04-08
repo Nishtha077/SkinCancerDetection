@@ -1,0 +1,10 @@
+streamlit
+tensorflow
+numpy
+h5py
+scikit-image
+matplotlib
+gdown
+huggingface_hub
+
+
