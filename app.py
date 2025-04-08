@@ -9,26 +9,39 @@ import matplotlib.pyplot as plt
 import os
 from huggingface_hub import hf_hub_download
 import requests
+from skimage.metrics import structural_similarity as ssim
 
 
-# Constants
-url = "https://huggingface.co/Nishtha001/CNNAE/resolve/main/cnn_model.keras"
-output_path = "cnn_model.keras"
+# Define custom loss
+def ssim_loss(y_true, y_pred):
+    y_true = tf.convert_to_tensor(y_true)
+    y_pred = tf.convert_to_tensor(y_pred)
 
-response = requests.get(url)
-with open(output_path, "wb") as f:
-    f.write(response.content)
+    def compute_ssim(image1, image2):
+        image1_np = image1.numpy()
+        image2_np = image2.numpy()
+        return ssim(image1_np, image2_np, data_range=image1_np.max() - image1_np.min(), channel_axis=2)
 
-print("Model downloaded!")
+    ssim_vals = tf.map_fn(lambda x: tf.py_function(func=compute_ssim, inp=[x[0], x[1]], Tout=tf.float64),
+                          (y_true, y_pred), dtype=tf.float64)
+    return 1 - tf.reduce_mean(ssim_vals)
+
+
 
 TARGET_SIZE = (128, 128)
 NUM_BANDS = 31
 THRESHOLD = 0.2
 
+model_path = hf_hub_download(
+    repo_id="Nishtha001/CNNAE",
+    filename="cnn_model.keras"
+)
+
+# Load the model
 
 # Load model
 try:
-    model = tf.keras.models.load_model(output_path, compile=False)
+    model = tf.keras.models.load_model(model_path, custom_objects={'ssim_loss': ssim_loss})
     print("Model loaded successfully.")
 except Exception as e:
     st.error(f"❌ Failed to load model: `{e}`")
